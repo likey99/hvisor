@@ -11,6 +11,9 @@ numeric_enum! {
     pub enum HyperCallCode {
         HypervisorDisable = 0,
         HypervisorCellCreate = 1,
+        HypervisorCellStart = 2,
+        HypervisorCellLoad = 3,
+        HypervisorCellDestroy = 4,
     }
 }
 
@@ -36,6 +39,9 @@ impl<'a> HyperCall<'a> {
         let ret = match code {
             HyperCallCode::HypervisorDisable => self.hypervisor_disable(),
             HyperCallCode::HypervisorCellCreate => self.hypervisor_cell_create(),
+            HyperCallCode::HypervisorCellLoad => self.hypervisor_cell_load(),
+            HyperCallCode::HypervisorCellStart => self.hypervisor_cell_start(),
+            HyperCallCode::HypervisorCellDestroy => self.hypervisor_cell_destroy(),
         };
         Ok(())
     }
@@ -52,11 +58,27 @@ impl<'a> HyperCall<'a> {
         self.cpu_data.deactivate_vmm(0)?;
         unreachable!()
     }
+
     fn hypervisor_cell_create(&mut self) -> HyperCallResult {
         info!("handle hvc cell create");
         //TODO should be read from config files
         let target_cpu = 3;
         arch_send_event(target_cpu);
+        HyperCallResult::Ok(0)
+    }
+
+    fn hypervisor_cell_load(&mut self) -> HyperCallResult {
+        info!("handle hvc cell load");
+        HyperCallResult::Ok(0)
+    }
+
+    fn hypervisor_cell_start(&mut self) -> HyperCallResult {
+        info!("handle hvc cell start");
+        HyperCallResult::Ok(0)
+    }
+
+    fn hypervisor_cell_destroy(&mut self) -> HyperCallResult {
+        info!("handle hvc cell destroy");
         HyperCallResult::Ok(0)
     }
 }
