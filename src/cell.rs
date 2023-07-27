@@ -10,6 +10,10 @@ pub struct Cell<'a> {
     pub config: CellConfig<'a>,
     /// Guest physical memory set.
     pub gpm: MemorySet<Stage2PageTable>,
+    /// Number of pages used for storing cell-specific states and configuration data.
+	pub data_pages: u64,
+    /// True while the cell can be loaded by the root cell.
+    pub loadable: bool,
 }
 
 impl Cell<'_> {
