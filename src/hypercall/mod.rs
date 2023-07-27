@@ -82,6 +82,7 @@ impl<'a> HyperCall<'a> {
         HyperCallResult::Ok(0)
     }
 }
+
 pub const SGI_HV_ID: u64 = 15;
 pub fn arch_send_event(cpuid: u64) -> HvResult {
     let aff3: u64 = 0 << 48;

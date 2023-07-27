@@ -1,15 +1,20 @@
+use libc::cpu_set_t;
 use crate::arch::Stage2PageTable;
 use crate::config::{CellConfig, HvSystemConfig};
 use crate::error::HvResult;
 use crate::memory::addr::{GuestPhysAddr, HostPhysAddr};
 use crate::memory::{GenericPageTableImmut, MemFlags, MemoryRegion, MemorySet};
 
-#[derive(Debug)]
+// #[derive(Debug)]
 pub struct Cell<'a> {
     /// Cell configuration.
     pub config: CellConfig<'a>,
     /// Guest physical memory set.
     pub gpm: MemorySet<Stage2PageTable>,
+    /// Cell's CPU set.
+    pub cpu_set: &'a cpu_set_t,
+    /// Pointer to next cell in the system.
+    pub next: &'a Cell<'a>,
     /// Number of pages used for storing cell-specific states and configuration data.
 	pub data_pages: u64,
     /// True while the cell can be loaded by the root cell.
@@ -81,7 +86,14 @@ impl Cell<'_> {
         Ok(Self {
             config: cell_config,
             gpm,
+            data_pages: 0,
+            loadable: false,
         })
+    }
+
+    fn cell_suspend() -> HvResult {
+        let cpu = 0;
+        Ok(())
     }
 }
 
@@ -94,7 +106,7 @@ pub fn root_cell<'a>() -> &'a Cell<'a> {
 pub fn init() -> HvResult {
     let root_cell = Cell::new_root()?;
     info!("Root cell init end.");
-    debug!("{:#x?}", root_cell);
+    // debug!("{:#x?}", root_cell);
 
     ROOT_CELL.call_once(|| root_cell);
     Ok(())
