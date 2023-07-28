@@ -4,6 +4,7 @@ use numeric_enum_macro::numeric_enum;
 
 use crate::arch::Stage2PageTable;
 use crate::config::{CellConfig, HvSystemConfig};
+use crate::cpuset::CpuSet;
 use crate::error::HvResult;
 use crate::memory::addr::{GuestPhysAddr, HostPhysAddr};
 use crate::memory::{GenericPageTableImmut, MemFlags, MemoryRegion, MemorySet};
@@ -21,6 +22,7 @@ numeric_enum! {
     }
 }
 
+#[repr(C)]
 #[derive(Debug)]
 pub struct Cell<'a> {
     /// Cell configuration.
@@ -28,7 +30,7 @@ pub struct Cell<'a> {
     /// Guest physical memory set.
     pub gpm: MemorySet<Stage2PageTable>,
     /// Cell's CPU set.
-    // pub cpu_set: &'a cpu_set_t,
+    pub cpu_set: Option<&'a mut CpuSet>,
     /// Pointer to next cell in the system.
     // pub next: Option<&'a mut Cell<'a>>,
     /// Lock protecting changes to mmio_locations, mmio_handlers, and num_mmio_regions.
@@ -117,6 +119,7 @@ impl<'a> Cell<'a> {
         Ok(Self {
             config: cell_config,
             gpm,
+            cpu_set: None,
             // next: None,
             mmio_region_lock: Mutex::new(()),
             mmio_generation: 0,
