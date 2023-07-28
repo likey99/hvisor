@@ -1,18 +1,57 @@
+#![allow(unused_imports)]
+use spin::Mutex;
+use numeric_enum_macro::numeric_enum;
+
 use crate::arch::Stage2PageTable;
 use crate::config::{CellConfig, HvSystemConfig};
+use crate::cpuset::CpuSet;
 use crate::error::HvResult;
 use crate::memory::addr::{GuestPhysAddr, HostPhysAddr};
 use crate::memory::{GenericPageTableImmut, MemFlags, MemoryRegion, MemorySet};
+use crate::mmio::{MMIORegionLocation, MMIORegionHandler};
 
+numeric_enum! {
+    #[repr(u64)]
+    #[derive(Debug, Eq, PartialEq, Copy, Clone)]
+    pub enum CellState {
+        HVCellRunning = 0,
+        HVCellRunningLocked = 1,
+        HVCellShutDown = 2,
+        HVCellFailed = 3,
+        HVCellFailedCommRev = 4,
+    }
+}
+
+#[repr(C)]
 #[derive(Debug)]
 pub struct Cell<'a> {
     /// Cell configuration.
     pub config: CellConfig<'a>,
     /// Guest physical memory set.
     pub gpm: MemorySet<Stage2PageTable>,
+    /// Cell's CPU set.
+    pub cpu_set: Option<&'a mut CpuSet>,
+    /// Pointer to next cell in the system.
+    // pub next: Option<&'a mut Cell<'a>>,
+    /// Lock protecting changes to mmio_locations, mmio_handlers, and num_mmio_regions.
+    pub mmio_region_lock: Mutex<()>,
+    /// Generation counter of mmio_locations, mmio_handlers, and num_mmio_regions.
+    pub mmio_generation: u64,
+    /// Number of pages used for storing cell-specific states and configuration data.
+	pub data_pages: u64,
+    /// True while the cell can be loaded by the root cell.
+    pub loadable: bool,
+    /// MMIO region description table.
+    pub mmio_locations: MMIORegionLocation,
+    /// MMIO region handler table.
+    pub mmio_handlers: MMIORegionHandler,
+    /// Number of MMIO regions in use.
+	pub num_mmio_regions: u32,
+	/// Maximum number of MMIO regions.
+	pub max_mmio_regions: u32,
 }
 
-impl Cell<'_> {
+impl<'a> Cell<'a> {
     fn new_root() -> HvResult<Self> {
         let sys_config = HvSystemConfig::get();
         let cell_config = sys_config.root_cell.config();
@@ -74,10 +113,28 @@ impl Cell<'_> {
 
         trace!("Guest phyiscal memory set: {:#x?}", gpm);
 
+        let mut mmio_loca = MMIORegionLocation::new();
+        let mut mmio_hdl = MMIORegionHandler::new();
+
         Ok(Self {
             config: cell_config,
             gpm,
+            cpu_set: None,
+            // next: None,
+            mmio_region_lock: Mutex::new(()),
+            mmio_generation: 0,
+            data_pages: 0,
+            loadable: false,
+            mmio_locations: mmio_loca,
+            mmio_handlers: mmio_hdl,
+            num_mmio_regions: 0,
+            max_mmio_regions: 0,
         })
+    }
+
+    fn cell_suspend() -> HvResult {
+        let _cpu = 0;
+        Ok(())
     }
 }
 

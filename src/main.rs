@@ -26,11 +26,14 @@ mod arch;
 mod cell;
 mod config;
 mod consts;
+mod cpuset;
 mod device;
 mod header;
 mod hypercall;
 mod memory;
+mod mmio;
 mod panic;
+mod pci;
 mod percpu;
 
 use crate::arch::sysreg::{read_sysreg, write_sysreg};

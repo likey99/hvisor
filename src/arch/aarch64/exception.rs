@@ -1,10 +1,12 @@
+#![allow(unused_imports)]
 use super::entry::vmreturn;
 use crate::arch::sysreg::write_sysreg;
+use crate::arch::context::GeneralRegisters;
 use crate::device::gicv3::gicv3_handle_irq_el1;
 use crate::header::{HvHeaderStuff, HEADER_STUFF};
 use crate::hypercall::HyperCall;
 use crate::percpu::PerCpu;
-use crate::percpu::{get_cpu_data, this_cpu_data, GeneralRegisters};
+use crate::percpu::{get_cpu_data, this_cpu_data};
 use aarch64_cpu::{asm, registers::*};
 use tock_registers::interfaces::*;
 #[allow(dead_code)]
