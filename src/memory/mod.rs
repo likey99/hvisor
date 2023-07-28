@@ -69,7 +69,10 @@ pub use mm::{MemoryRegion, MemorySet};
 pub use paging::{GenericPTE, PagingInstr};
 pub use paging::{GenericPageTable, GenericPageTableImmut, Level4PageTable, Level4PageTableImmut};
 
+use self::paging::PageSize;
+
 pub const PAGE_SIZE: usize = paging::PageSize::Size4K as usize;
+pub const PAGE_OFFS_MASK: usize = PAGE_SIZE - 1;
 
 //pub use mm::{MemoryRegion, MemorySet};
 

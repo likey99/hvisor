@@ -1,8 +1,13 @@
 use crate::arch::sysreg::write_sysreg;
+use crate::cell::Cell;
+use crate::config::HvCellDesc;
+use crate::consts::pages;
 use crate::error::HvResult;
+use crate::memory::{PAGE_OFFS_MASK, MemoryRegion, MemFlags};
 use crate::percpu::PerCpu;
 use bit_field::BitField;
 use core::convert::TryFrom;
+use core::mem::size_of;
 use core::sync::atomic::{AtomicU32, Ordering};
 use numeric_enum_macro::numeric_enum;
 numeric_enum! {
@@ -20,11 +25,11 @@ numeric_enum! {
 pub type HyperCallResult = HvResult<usize>;
 
 pub struct HyperCall<'a> {
-    cpu_data: &'a mut PerCpu,
+    cpu_data: &'a mut PerCpu<'a>,
 }
 
 impl<'a> HyperCall<'a> {
-    pub fn new(cpu_data: &'a mut PerCpu) -> Self {
+    pub fn new(cpu_data: &'a mut PerCpu<'a>) -> Self {
         Self { cpu_data }
     }
 
@@ -38,10 +43,10 @@ impl<'a> HyperCall<'a> {
         };
         let ret = match code {
             HyperCallCode::HypervisorDisable => self.hypervisor_disable(),
-            HyperCallCode::HypervisorCellCreate => self.hypervisor_cell_create(),
-            HyperCallCode::HypervisorCellLoad => self.hypervisor_cell_load(),
-            HyperCallCode::HypervisorCellStart => self.hypervisor_cell_start(),
-            HyperCallCode::HypervisorCellDestroy => self.hypervisor_cell_destroy(),
+            HyperCallCode::HypervisorCellCreate => self.hypervisor_cell_create(arg0),
+            HyperCallCode::HypervisorCellLoad => self.hypervisor_cell_load(arg0),
+            HyperCallCode::HypervisorCellStart => self.hypervisor_cell_start(arg0),
+            HyperCallCode::HypervisorCellDestroy => self.hypervisor_cell_destroy(arg0),
         };
         Ok(())
     }
@@ -59,25 +64,49 @@ impl<'a> HyperCall<'a> {
         unreachable!()
     }
 
-    fn hypervisor_cell_create(&mut self) -> HyperCallResult {
+    fn hypervisor_cell_create(&mut self, config_address: u64) -> HyperCallResult {
         info!("handle hvc cell create");
         //TODO should be read from config files
+
+        // todo: check if at root cell
+
+        // todo: cell_suspend(root cell)
+
+        let cfg_pages_offs = config_address as usize & PAGE_OFFS_MASK;
+        // let cfg_pages = pages(cfg_pages_offs + size_of::<HvCellDesc>());
+        // let cell_some = self.cpu_data.cell;
+        
+        // let cell = match self.cpu_data.cell {
+        //     Some(cell_ptr) => cell_ptr,
+        //     None => {
+        //         warn!("null cell point!");
+        //         todo!();
+        //     }
+        // };
+        // cell.gpm.insert(MemoryRegion::new_with_empty_mapper(
+        //     config_address as usize,
+        //     cfg_pages_offs + size_of::<HvCellDesc>(), 
+        //     MemFlags::READ,
+        // ))?;
+
+        // let cfg_total_size: 
+
         let target_cpu = 3;
         arch_send_event(target_cpu);
         HyperCallResult::Ok(0)
     }
 
-    fn hypervisor_cell_load(&mut self) -> HyperCallResult {
+    fn hypervisor_cell_load(&mut self, id: u64) -> HyperCallResult {
         info!("handle hvc cell load");
         HyperCallResult::Ok(0)
     }
 
-    fn hypervisor_cell_start(&mut self) -> HyperCallResult {
+    fn hypervisor_cell_start(&mut self, id: u64) -> HyperCallResult {
         info!("handle hvc cell start");
         HyperCallResult::Ok(0)
     }
 
-    fn hypervisor_cell_destroy(&mut self) -> HyperCallResult {
+    fn hypervisor_cell_destroy(&mut self, id: u64) -> HyperCallResult {
         info!("handle hvc cell destroy");
         HyperCallResult::Ok(0)
     }

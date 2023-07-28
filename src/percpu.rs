@@ -2,6 +2,7 @@ use aarch64_cpu::registers::MPIDR_EL1;
 
 //use crate::arch::vcpu::Vcpu;
 use crate::arch::entry::{shutdown_el2, virt2phys_el2, vmreturn};
+use crate::cell::Cell;
 use crate::consts::{PER_CPU_ARRAY_PTR, PER_CPU_SIZE};
 use crate::device::gicv3::gicv3_cpu_init;
 use crate::device::gicv3::gicv3_cpu_shutdown;
@@ -13,8 +14,12 @@ use aarch64_cpu::{asm, registers::*};
 use core::fmt::{Debug, Formatter, Result};
 use core::sync::atomic::{AtomicU32, Ordering};
 use tock_registers::interfaces::*;
+
 static ENTERED_CPUS: AtomicU32 = AtomicU32::new(0);
 static ACTIVATED_CPUS: AtomicU32 = AtomicU32::new(0);
+
+pub const JAILHOUSE_NUM_CPU_STATS: usize = 10;
+
 #[repr(C)]
 #[derive(Debug, Default)]
 pub struct GeneralRegisters {
@@ -22,23 +27,47 @@ pub struct GeneralRegisters {
     pub usr: [u64; 31],
 }
 #[repr(C)]
-pub struct PerCpu {
+pub struct PerCpu<'a> {
     pub id: u64,
     /// Referenced by arch::cpu::thread_pointer() for x86_64.
     pub self_vaddr: VirtAddr,
     //guest_regs: GeneralRegisters, //should be in vcpu
     pub wait_for_poweron: bool,
     // Stack will be placed here.
+    
+    /// Owning cell.
+    pub cell: Option<&'a mut Cell<'a>>,
+    /** State of the shutdown process. Possible values:
+	 * @li SHUTDOWN_NONE: no shutdown in progress
+	 * @li SHUTDOWN_STARTED: shutdown in progress
+	 * @li negative error code: shutdown failed
+	 */
+	pub shutdown_state: i32,
+	/// True if CPU violated a cell boundary or cause some other failure in guest mode.
+	pub failed: bool,
+
+	/// Set to true for instructing the CPU to suspend.
+	pub suspend_cpu: bool,
+	/// True if CPU is suspended.
+	pub cpu_suspended: bool,
+	/// Set to true for a pending TLB flush for the paging layer that does host physical <-> guest physical memory mappings.
+	pub flush_vcpu_caches: bool,
 }
 
-impl PerCpu {
-    pub fn new<'a>(cpu_id: u64) -> HvResult<&'a mut Self> {
+impl<'a> PerCpu<'a> {
+    pub fn new<'b>(cpu_id: u64) -> HvResult<&'b mut Self> {
         let _cpu_rank = ENTERED_CPUS.fetch_add(1, Ordering::SeqCst);
         let vaddr = PER_CPU_ARRAY_PTR as VirtAddr + cpu_id as usize * PER_CPU_SIZE;
         let ret = unsafe { &mut *(vaddr as *mut Self) };
         ret.id = cpu_id;
         ret.self_vaddr = vaddr;
         ret.wait_for_poweron = false;
+        ret.cell = None;
+        ret.shutdown_state = 0;
+        ret.failed = false;
+        ret.suspend_cpu = false;
+        ret.cpu_suspended = false;
+        ret.flush_vcpu_caches = false;
         Ok(ret)
     }
 
@@ -114,7 +143,7 @@ impl PerCpu {
     }
 }
 
-pub fn this_cpu_data<'a>() -> &'a mut PerCpu {
+pub fn this_cpu_data<'a>() -> &'a mut PerCpu<'a> {
     /*per cpu data should be handled after final el2 paging init
     now just only cpu 0*/
     /*arm_read_sysreg(MPIDR_EL1, mpidr);
@@ -126,7 +155,7 @@ pub fn this_cpu_data<'a>() -> &'a mut PerCpu {
     unsafe { &mut *(cpu_data as *mut PerCpu) }
 }
 
-pub fn get_cpu_data<'a>(cpu_id: u64) -> &'a mut PerCpu {
+pub fn get_cpu_data<'a>(cpu_id: u64) -> &'a mut PerCpu<'a> {
     let cpu_data: usize = PER_CPU_ARRAY_PTR as VirtAddr + cpu_id as usize * PER_CPU_SIZE;
     unsafe { &mut *(cpu_data as *mut PerCpu) }
 }

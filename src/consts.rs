@@ -11,6 +11,7 @@ pub const PER_CPU_SIZE: usize = 32 * 1024; // 32KB  //may get bigger when dev
 
 /// Size of the per cpu boot stack
 pub const PER_CPU_BOOT_SIZE: usize = 1024; // 1KB
+
 /// Start virtual address of the hypervisor memory.
 pub const HV_BASE: usize = 0xffffc0200000;
 
@@ -33,6 +34,11 @@ pub fn free_memory_start() -> VirtAddr {
 /// End virtual address of the hypervisor memory.
 pub fn hv_end() -> VirtAddr {
     HV_BASE + HvSystemConfig::get().hypervisor_memory.size as usize
+}
+
+/// Count number of pages for given size (round up).
+pub fn pages(s: usize) -> usize {
+    (s + PAGE_SIZE - 1) / PAGE_SIZE
 }
 
 extern "C" {
