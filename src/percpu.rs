@@ -1,7 +1,16 @@
-use aarch64_cpu::registers::MPIDR_EL1;
+#![allow(dead_code)]
+#![allow(unused_imports)]
+#![allow(unused_variables)]
+use core::fmt::{Debug, Formatter, Result};
+use core::sync::atomic::{AtomicU32, Ordering};
 
-//use crate::arch::vcpu::Vcpu;
+use aarch64_cpu::registers::MPIDR_EL1;
+use aarch64_cpu::{asm, registers::*};
+use tock_registers::interfaces::*;
+
+use crate::arch::vcpu::Vcpu;
 use crate::arch::entry::{shutdown_el2, virt2phys_el2, vmreturn};
+use crate::arch::context::LinuxContext;
 use crate::cell::Cell;
 use crate::consts::{PER_CPU_ARRAY_PTR, PER_CPU_SIZE};
 use crate::device::gicv3::gicv3_cpu_init;
@@ -10,28 +19,26 @@ use crate::error::HvResult;
 use crate::header::HvHeader;
 use crate::header::{HvHeaderStuff, HEADER_STUFF};
 use crate::memory::addr::VirtAddr;
-use aarch64_cpu::{asm, registers::*};
-use core::fmt::{Debug, Formatter, Result};
-use core::sync::atomic::{AtomicU32, Ordering};
-use tock_registers::interfaces::*;
 
 static ENTERED_CPUS: AtomicU32 = AtomicU32::new(0);
 static ACTIVATED_CPUS: AtomicU32 = AtomicU32::new(0);
 
 pub const JAILHOUSE_NUM_CPU_STATS: usize = 10;
 
-#[repr(C)]
-#[derive(Debug, Default)]
-pub struct GeneralRegisters {
-    pub exit_reason: u64,
-    pub usr: [u64; 31],
+#[derive(Debug, Eq, PartialEq)]
+pub enum CpuState {
+    HvDisabled,
+    HvEnabled,
 }
+
 #[repr(C)]
 pub struct PerCpu<'a> {
     pub id: u64,
     /// Referenced by arch::cpu::thread_pointer() for x86_64.
     pub self_vaddr: VirtAddr,
-    //guest_regs: GeneralRegisters, //should be in vcpu
+    pub state: CpuState,
+    pub vcpu: Vcpu,
+    linux: LinuxContext,
     pub wait_for_poweron: bool,
     // Stack will be placed here.
     
@@ -61,6 +68,7 @@ impl<'a> PerCpu<'a> {
         let ret = unsafe { &mut *(vaddr as *mut Self) };
         ret.id = cpu_id;
         ret.self_vaddr = vaddr;
+        ret.state = CpuState::HvDisabled;
         ret.wait_for_poweron = false;
         ret.cell = None;
         ret.shutdown_state = 0;
@@ -78,12 +86,15 @@ impl<'a> PerCpu<'a> {
     pub fn guest_reg(&self) -> VirtAddr {
         self as *const _ as VirtAddr + PER_CPU_SIZE - 8 - 32 * 8
     }
+
     pub fn entered_cpus() -> u32 {
         ENTERED_CPUS.load(Ordering::Acquire)
     }
+
     pub fn activated_cpus() -> u32 {
         ACTIVATED_CPUS.load(Ordering::Acquire)
     }
+
     pub fn activate_vmm(&mut self) -> HvResult {
         ACTIVATED_CPUS.fetch_add(1, Ordering::SeqCst);
         info!("activating cpu {}", self.id);
@@ -99,18 +110,21 @@ impl<'a> PerCpu<'a> {
         self.return_linux()?;
         unreachable!()
     }
+
     pub fn deactivate_vmm(&mut self, ret_code: usize) -> HvResult {
         ACTIVATED_CPUS.fetch_sub(1, Ordering::SeqCst);
         info!("Disabling cpu {}", self.id);
         self.arch_shutdown_self();
         Ok(())
     }
+
     pub fn return_linux(&mut self) -> HvResult {
         unsafe {
             vmreturn(self.guest_reg());
         }
         Ok(())
     }
+    
     /*should be in vcpu*/
     pub fn arch_shutdown_self(&mut self) -> HvResult {
         /*irqchip reset*/

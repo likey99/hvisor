@@ -1,7 +1,7 @@
+#![allow(unused_imports)]
 use spin::Mutex;
 use numeric_enum_macro::numeric_enum;
 
-// use libc::cpu_set_t;
 use crate::arch::Stage2PageTable;
 use crate::config::{CellConfig, HvSystemConfig};
 use crate::error::HvResult;
