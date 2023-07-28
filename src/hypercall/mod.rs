@@ -73,7 +73,7 @@ impl<'a> HyperCall<'a> {
         // todo: cell_suspend(root cell)
 
         let cfg_pages_offs = config_address as usize & PAGE_OFFS_MASK;
-        // let cfg_pages = pages(cfg_pages_offs + size_of::<HvCellDesc>());
+        let cfg_pages = pages(cfg_pages_offs + size_of::<HvCellDesc>());
         // let cell_some = self.cpu_data.cell;
         
         // let cell = match self.cpu_data.cell {

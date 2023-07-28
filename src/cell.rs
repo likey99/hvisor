@@ -1,4 +1,5 @@
 use spin::Mutex;
+use numeric_enum_macro::numeric_enum;
 
 // use libc::cpu_set_t;
 use crate::arch::Stage2PageTable;
@@ -8,7 +9,19 @@ use crate::memory::addr::{GuestPhysAddr, HostPhysAddr};
 use crate::memory::{GenericPageTableImmut, MemFlags, MemoryRegion, MemorySet};
 use crate::mmio::{MMIORegionLocation, MMIORegionHandler};
 
-// #[derive(Debug)]
+numeric_enum! {
+    #[repr(u64)]
+    #[derive(Debug, Eq, PartialEq, Copy, Clone)]
+    pub enum CellState {
+        HVCellRunning = 0,
+        HVCellRunningLocked = 1,
+        HVCellShutDown = 2,
+        HVCellFailed = 3,
+        HVCellFailedCommRev = 4,
+    }
+}
+
+#[derive(Debug)]
 pub struct Cell<'a> {
     /// Cell configuration.
     pub config: CellConfig<'a>,
@@ -131,7 +144,7 @@ pub fn root_cell<'a>() -> &'a Cell<'a> {
 pub fn init() -> HvResult {
     let root_cell = Cell::new_root()?;
     info!("Root cell init end.");
-    // debug!("{:#x?}", root_cell);
+    debug!("{:#x?}", root_cell);
 
     ROOT_CELL.call_once(|| root_cell);
     Ok(())

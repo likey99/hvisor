@@ -1,5 +1,5 @@
-
 #[repr(C)]
+#[derive(Debug)]
 /// MMIO region coordinates.
 pub struct MMIORegionLocation {
     /// Start address of the region.
@@ -18,6 +18,7 @@ impl MMIORegionLocation {
 }
 
 #[repr(C)]
+#[derive(Debug)]
 /// MMIO region access handler description.
 pub struct MMIORegionHandler {
 	// / Access handling function.
