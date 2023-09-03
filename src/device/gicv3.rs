@@ -80,6 +80,7 @@ mod gicd;
 mod gicr;
 use crate::arch::sysreg::{read_sysreg, write_sysreg};
 use crate::hypercall::SGI_HV_ID;
+use crate::hypercall::SGI_RESUME_ID;
 /// Representation of the GIC.
 pub struct GICv3 {
     /// The Distributor.
@@ -176,21 +177,28 @@ pub fn gicv3_cpu_shutdown() {
 
 pub fn gicv3_handle_irq_el1() {
     if let Some(irq_id) = pending_irq() {
+        if irq_id != 30 && irq_id != 79 {
+            info!("sgi id = {}", irq_id);
+        }
         if (irq_id < 16) {
             trace!("sgi get {}", irq_id);
             if irq_id != 0 {
                 info!("sgi get {}", irq_id);
+                
             }
-        }
 
-        if irq_id == SGI_HV_ID as usize {
-            info!("hv sgi got {}", irq_id);
-            unsafe {
-                core::arch::asm!(
-                    "
-                wfi
-            ",
-                );
+            if irq_id == SGI_HV_ID as usize {
+                info!("hv sgi got {}", irq_id);
+                unsafe {
+                    core::arch::asm!(
+                        "
+                        wfi
+                    ",
+                    );
+                }
+            }
+            else if irq_id == SGI_RESUME_ID as usize {
+                info!("hv sgi got {}, resume", irq_id);
             }
         }
 

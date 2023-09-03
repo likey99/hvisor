@@ -22,6 +22,9 @@ numeric_enum! {
     }
 }
 
+pub const SGI_HV_ID: u64 = 15;
+pub const SGI_RESUME_ID: u64 = 14;
+
 pub type HyperCallResult = HvResult<usize>;
 
 pub struct HyperCall<'a> {
@@ -92,7 +95,7 @@ impl<'a> HyperCall<'a> {
         // let cfg_total_size: 
 
         let target_cpu = 3;
-        arch_send_event(target_cpu);
+        arch_send_event(target_cpu, SGI_HV_ID);
         HyperCallResult::Ok(0)
     }
 
@@ -108,21 +111,23 @@ impl<'a> HyperCall<'a> {
 
     fn hypervisor_cell_destroy(&mut self, id: u64) -> HyperCallResult {
         info!("handle hvc cell destroy");
+        let target_cpu = 3;
+        arch_send_event(target_cpu, SGI_RESUME_ID);
         HyperCallResult::Ok(0)
     }
 }
 
-pub const SGI_HV_ID: u64 = 15;
-pub fn arch_send_event(cpuid: u64) -> HvResult {
+pub fn arch_send_event(cpuid: u64, sgi_num: u64) -> HvResult {
     let aff3: u64 = 0 << 48;
     let aff2: u64 = 0 << 32;
     let aff1: u64 = 0 << 16;
     let irm: u64 = 0 << 40;
-    let sgi_id: u64 = SGI_HV_ID << 24;
+    let sgi_id: u64 = sgi_num << 24;
     let target_list: u64 = 1 << cpuid;
     let val: u64 = aff1 | aff2 | aff3 | irm | sgi_id | target_list;
     unsafe {
         write_sysreg!(icc_sgi1r_el1, val);
     }
+    info!("write sgi sys");
     Ok(())
 }
